@@ -1,0 +1,25 @@
+{
+  "name": "healthreport",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rcy17/HealthReport.git"
+  },
+  "author": "rcy17",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rcy17/HealthReport/issues"
+  },
+  "homepage": "https://github.com/rcy17/HealthReport#readme",
+  "devDependencies": {
+    "typescript": "^4.3.5"
+  },
+  "dependencies": {
+    "puppeteer": "^10.1.0"
+  }
+}
