@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 async function login(page, username, password) {
   await page.goto('https://thos.tsinghua.edu.cn/');
@@ -8,7 +9,7 @@ async function login(page, username, password) {
   await page.waitForTimeout(1500)
   const error = await page.$("#msg_note");
   if (error) {
-    throw "用户名或密码错误";
+    throw "!用户名或密码错误";
   }
   await page.waitForSelector(".box[name='学生健康及出行情况报告']");
 }
@@ -35,15 +36,15 @@ async function submit(page) {
   await page.waitForSelector('#formIframe');
   let frame = page.frames().find(frame => frame.name() === "formIframe");
   if(!frame) {
-    throw "未找到frame: formIframe,文件结构可能已改变!请到 https://github.com/rcy17/HealthReport 提一个issue～"
+    throw "!未找到frame: formIframe,文件结构可能已改变!请到 https://github.com/rcy17/HealthReport 提一个issue～"
   }
-  wait_seconds = 0
+  waitSeconds = 0
   while(true) {
-    if (wait_seconds > 30) {
+    if (waitSeconds > 30) {
       throw "30s内未加载完成，已自动退出(请确定您此前提交过该表，因此详细地址非空)"
     }
     await page.waitForTimeout(1000);
-    wait_seconds += 1
+    waitSeconds += 1
     let success = await frame.$eval("#MQXXSZ", (e) => e && e.value);
     if(success) {
       break
@@ -51,11 +52,10 @@ async function submit(page) {
   }
   await page.click("#commit")
   await page.waitForNavigation()
-  await page.screenshot("33.png")
 }
 
 
-async function main(username, password) {
+async function work(username, password) {
   const browser = await puppeteer.launch();
   try {
     const page = await browser.newPage();
@@ -72,11 +72,52 @@ async function main(username, password) {
       }
       console.log("今日打卡成功");
     }
-  } catch(error) {
-    console.log(error)
   } finally {
     await browser.close();
   }
 }
 
-main("username", "password");
+async function main(username, password, interval) {
+  let nextTime = new Date();
+  while(true) {
+    const delta = (nextTime - new Date());
+    if(delta > 0) {
+      await delay(delay);
+      continue;
+    }
+    try {
+      await work(username, password);
+    } catch (error) {
+      console.log((new Date()).toLocaleString(), error);
+      if(error[0] === '!') {
+        break;
+      }
+      // wait for 10 second
+      await delay(10000);
+      continue;
+    }
+    nextTime.setDate(nextTime.getDate() + 1);
+    nextTime.setHours(7);
+    nextTime.setMinutes(0);
+    nextTime.setSeconds(Math.floor(Math.random() * interval * 60));
+    console.log("计划下次打卡时间：", nextTime.toLocaleString());
+  }
+}
+
+const argv = require('minimist')(process.argv.slice(2));
+const username = argv.u ?? argv.username;
+const password = argv.p ?? argv.password;
+const interval = parseInt(argv.i ?? argv.interval ?? 180);
+if (!username) {
+  throw "username is required";
+}
+if (!password) {
+  throw "password is required";
+}
+if (isNaN(interval) || interval < 0) {
+  throw "interval must be a positive inter"
+}
+console.log("username: ", username);
+console.log("password:", password);
+console.log("random interval: ", interval);
+main(username, password, interval);
