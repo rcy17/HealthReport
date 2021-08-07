@@ -27,7 +27,7 @@ async function checkSubmitted(page) {
   }
   const day = new Date(result.list[0].start_time).toLocaleDateString();
   const today = new Date().toLocaleDateString();
-  return day === today;
+  return day === today? result.list[0].start_time: null;
 }
 
 async function submit(page) {
@@ -51,17 +51,17 @@ async function work(username, password) {
   try {
     const page = await browser.newPage();
     await login(page, username, password);
-    let isSubmitted = await checkSubmitted(page);
-    if (isSubmitted) {
+    let submittedTime = await checkSubmitted(page);
+    if (submittedTime) {
       console.log("今天已经打卡过了");
     } else {
       await submit(page);
-      isSubmitted = await checkSubmitted(page);
+      submittedTime = await checkSubmitted(page);
       await page.screenshot("log.png");
-      if (!isSubmitted) {
+      if (!submittedTime) {
         throw "本次打卡失败";
       }
-      console.log("今日打卡成功");
+      console.log("今日打卡时间：", submittedTime);
     }
   } finally {
     await browser.close();
@@ -73,7 +73,7 @@ async function main(username, password, interval) {
   while (true) {
     const delta = (nextTime - new Date());
     if (delta > 0) {
-      await delay(delay);
+      await delay(delta);
       continue;
     }
     try {
