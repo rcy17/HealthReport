@@ -6,7 +6,7 @@ async function login(page, username, password) {
   await page.type('#i_user', username);
   await page.type('#i_pass', password);
   await page.click('.btn');
-  await page.waitForTimeout(1500)
+  await page.waitForNavigation();
   const error = await page.$("#msg_note");
   if (error) {
     throw "!用户名或密码错误";
@@ -19,39 +19,30 @@ async function checkSubmitted(page) {
     let xhr = new XMLHttpRequest();
     xhr.open("post", "https://thos.tsinghua.edu.cn/fp/fp/myserviceapply/getBJSXList", false);
     xhr.setRequestHeader('content-type', 'application/json');
-    xhr.send(JSON.stringify({"pageNum":"1","pageSize":"10"}))
+    xhr.send(JSON.stringify({ "pageNum": "1", "pageSize": "10" }))
     return JSON.parse(xhr.responseText)
   })
-  if(!result.list) {
+  if (!result.list) {
     return false;
   }
-  const day = new Date(result.list[1].start_time).toLocaleDateString();
+  const day = new Date(result.list[0].start_time).toLocaleDateString();
   const today = new Date().toLocaleDateString();
   return day === today;
 }
 
 async function submit(page) {
-  await page.goto("https://thos.tsinghua.edu.cn/fp/view?m=fp#from=hall&" + 
-  "serveID=b44e2daf-0ef6-4d11-a115-0eb0d397934f&act=fp/serveapply");
+  await page.goto("https://thos.tsinghua.edu.cn/fp/view?m=fp#from=hall&" +
+    "serveID=b44e2daf-0ef6-4d11-a115-0eb0d397934f&act=fp/serveapply");
   await page.waitForSelector('#formIframe');
   let frame = page.frames().find(frame => frame.name() === "formIframe");
-  if(!frame) {
-    throw "!未找到frame: formIframe,文件结构可能已改变!请到 https://github.com/rcy17/HealthReport 提一个issue～"
+  if (!frame) {
+    throw "!未找到frame: formIframe,文件结构可能已改变!请到 https://github.com/rcy17/HealthReport/issues 提一个issue～"
   }
-  waitSeconds = 0
-  while(true) {
-    if (waitSeconds > 30) {
-      throw "30s内未加载完成，已自动退出(请确定您此前提交过该表，因此详细地址非空)"
-    }
-    await page.waitForTimeout(1000);
-    waitSeconds += 1
-    let success = await frame.$eval("#MQXXSZ", (e) => e && e.value);
-    if(success) {
-      break
-    }
-  }
-  await page.click("#commit")
-  await page.waitForNavigation()
+  const element = await frame.waitForSelector("#MQXXSZ");
+  // 如果 20s 内加载不出来说明此前没填过详细地址
+  await frame.waitForFunction((e) => e.value, { timeout: 20000 }, element);
+  await page.click("#commit");
+  await page.waitForNavigation();
 }
 
 
@@ -61,13 +52,13 @@ async function work(username, password) {
     const page = await browser.newPage();
     await login(page, username, password);
     let isSubmitted = await checkSubmitted(page);
-    if(isSubmitted) {
+    if (isSubmitted) {
       console.log("今天已经打卡过了");
     } else {
       await submit(page);
       isSubmitted = await checkSubmitted(page);
       await page.screenshot("log.png");
-      if(!isSubmitted) {
+      if (!isSubmitted) {
         throw "本次打卡失败";
       }
       console.log("今日打卡成功");
@@ -79,9 +70,9 @@ async function work(username, password) {
 
 async function main(username, password, interval) {
   let nextTime = new Date();
-  while(true) {
+  while (true) {
     const delta = (nextTime - new Date());
-    if(delta > 0) {
+    if (delta > 0) {
       await delay(delay);
       continue;
     }
@@ -89,7 +80,7 @@ async function main(username, password, interval) {
       await work(username, password);
     } catch (error) {
       console.log((new Date()).toLocaleString(), error);
-      if(error[0] === '!') {
+      if (error[0] === '!') {
         break;
       }
       // wait for 10 second
